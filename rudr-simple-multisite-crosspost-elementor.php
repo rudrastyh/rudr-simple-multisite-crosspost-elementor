@@ -6,7 +6,7 @@
  * Network: true
  * Author: Misha Rudrastyh
  * Author URI: https://rudrastyh.com
- * Version: 1.3
+ * Version: 1.4
  */
 
 class Rudr_SMC_Elementor {
@@ -88,13 +88,21 @@ class Rudr_SMC_Elementor {
 			}
 
 			// column and section backgrounds
-			if( in_array( $element[ 'elType' ], array( 'column', 'section' ) ) && isset( $element[ 'settings' ][ 'background_image' ][ 'url' ] ) && isset( $element[ 'settings' ][ 'background_image' ][ 'id' ] ) ) {
-				$element[ 'settings' ][ 'background_image' ] = $this->process_background_image_in_element( $element[ 'settings' ][ 'background_image' ], $new_blog_id );
+			// or containers in new Elementor versions
+			if( in_array( $element[ 'elType' ], array( 'column', 'section', 'container' ) ) ) {
+				// background images
+				if( isset( $element[ 'settings' ][ 'background_image' ][ 'url' ] ) && isset( $element[ 'settings' ][ 'background_image' ][ 'id' ] ) ) {
+					$element[ 'settings' ][ 'background_image' ] = $this->process_background_image_in_element( $element[ 'settings' ][ 'background_image' ], $new_blog_id );
+				}
+				// background image overlays
+				if( isset( $element[ 'settings' ][ 'background_overlay_image' ][ 'url' ] ) && isset( $element[ 'settings' ][ 'background_overlay_image' ][ 'id' ] ) ) {
+					$element[ 'settings' ][ 'background_overlay_image' ] = $this->process_background_image_in_element( $element[ 'settings' ][ 'background_overlay_image' ], $new_blog_id );
+				}
 			}
 
-			// containers
-			if( 'container' === $element[ 'elType' ] && isset( $element[ 'settings' ][ 'background_overlay_image' ][ 'url' ] ) && isset( $element[ 'settings' ][ 'background_overlay_image' ][ 'id' ] ) ) {
-				$element[ 'settings' ][ 'background_overlay_image' ] = $this->process_background_image_in_element( $element[ 'settings' ][ 'background_overlay_image' ], $new_blog_id );
+			// copying global stuff
+			if( isset( $element[ 'settings' ][ '__globals__' ] ) && $element[ 'settings' ][ '__globals__' ] ) {
+				$element[ 'settings' ] = $this->unglobalize( $element[ 'settings' ] );
 			}
 
 			// loop child elements if any
@@ -243,11 +251,62 @@ class Rudr_SMC_Elementor {
 	}
 
 
-	private function process_global_styles() {
+	private function unglobalize( $element_settings ) {
+		// double check globals
+		if( empty( $element_settings[ '__globals__' ] ) || ! is_array( $element_settings[ '__globals__' ] ) ) {
+			return $element_settings;
+		}
 
+		// kit
+		$kit_active_id = get_option( 'elementor_active_kit' );
+		$kit = get_post_meta( $kit_active_id, '_elementor_page_settings', true );
+		$kit_system_colors = $kit[ 'system_colors' ] ? wp_list_pluck( $kit[ 'system_colors' ], '_id' ) : array();
+		$kit_custom_colors = $kit[ 'custom_colors' ] ? wp_list_pluck( $kit[ 'custom_colors' ], 'color', '_id' ) : array();
+		$kit_system_typography = $kit[ 'system_typography' ] ? wp_list_pluck( $kit[ 'system_typography' ], '_id' ) : array();
+		$kit_custom_typography = $kit[ 'custom_typography' ] ? array_combine( array_column( $kit[ 'custom_typography' ], '_id' ), $kit[ 'custom_typography' ] ) : array();
+
+		$global_styles = $element_settings[ '__globals__' ];
+
+		// loop through global styles
+		foreach( $global_styles as $key => $global_style ) {
+
+			$is_color = ( false !== strpos( $global_style, 'colors?' ) ) ? true : false;
+			$is_typography = ( false !== strpos( $global_style, 'typography?' ) ) ? true : false;
+			$id = explode( '?id=', $global_style ); $id = $id[1];
+
+			if( $is_color ) {
+				// skip default color styles
+				if( in_array( $id, $kit_system_colors ) ) {
+					continue;
+				}
+				// unglobalize custom colors
+				if( isset( $kit_custom_colors[ $id ] ) && $kit_custom_colors[ $id ] ) {
+					unset( $element_settings[ '__globals__' ][ $key ] );
+					$element_settings[ $key ] = $kit_custom_colors[ $id ];
+				}
+			}
+
+			if( $is_typography ) {
+				// skip default typography styles
+				if( in_array( $id, $kit_system_typography ) ) {
+					continue;
+				}
+				// unglobalize custom typography
+				if( isset( $kit_custom_typography[ $id ] ) && $kit_custom_typography[ $id ] ) {
+					unset( $element_settings[ '__globals__' ][ 'typography_typography' ] );
+					$element_settings[ 'typography_typography' ] = 'custom';
+					foreach( $kit_custom_typography[ $id ] as $typography_key => $typography_value ) {
+						if( in_array( $typography_key, array( '_id', 'title' ) ) ) {
+							continue;
+						}
+						$element_settings[ $typography_key ] = $typography_value;
+					}
+				}
+			}
+		}
+		return $element_settings;
 
 	}
-	
 
 }
 
