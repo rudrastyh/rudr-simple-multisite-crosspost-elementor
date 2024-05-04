@@ -6,7 +6,7 @@
  * Network: true
  * Author: Misha Rudrastyh
  * Author URI: https://rudrastyh.com
- * Version: 1.4
+ * Version: 1.5
  */
 
 class Rudr_SMC_Elementor {
@@ -55,11 +55,33 @@ class Rudr_SMC_Elementor {
 					continue;
 				}
 
-				// template one
+				// social icons
+				if( 'social-icons' === $element[ 'widgetType' ] ) {
+					if( isset( $element[ 'settings' ][ 'social_icon_list' ] ) && is_array( $element[ 'settings' ][ 'social_icon_list' ] ) ) {
+						for( $i = 0; $i < count( $element[ 'settings' ][ 'social_icon_list' ] ); $i++ ) {
+							// only for custom icons
+							if( isset( $element[ 'settings' ][ 'social_icon_list' ][$i][ 'social_icon' ][ 'value' ][ 'url' ] ) && isset( $element[ 'settings' ][ 'social_icon_list' ][$i][ 'social_icon' ][ 'value' ][ 'id' ] ) ) {
+								$element[ 'settings' ][ 'social_icon_list' ][$i][ 'social_icon' ] = $this->process_icon_in_element( $element[ 'settings' ][ 'social_icon_list' ][$i][ 'social_icon' ], $new_blog_id );
+							}
+						}
+					}
+					continue;
+				}
+
+				// template
 				if( 'template' === $element[ 'widgetType' ] && isset( $element[ 'settings' ][ 'template_id' ] ) ) {
 					// just replace if it is crossposted to a new blog
 					if( $crossposted_template_id = Rudr_Simple_Multisite_Crosspost::is_crossposted( $element[ 'settings' ][ 'template_id' ], $new_blog_id ) ) {
 						$element[ 'settings' ][ 'template_id' ] = $crossposted_template_id;
+					}
+					continue;
+				}
+
+				// global widget
+				if( 'global' === $element[ 'widgetType' ] && isset( $element[ 'templateID' ] ) ) {
+					// just replace if it is crossposted to a new blog
+					if( $crossposted_template_id = Rudr_Simple_Multisite_Crosspost::is_crossposted( $element[ 'templateID' ], $new_blog_id ) ) {
+						$element[ 'templateID' ] = (int) $crossposted_template_id;
 					}
 					continue;
 				}
@@ -147,16 +169,14 @@ class Rudr_SMC_Elementor {
 			$gallery = array();
 			foreach( $element[ 'settings' ][ 'gallery' ] as $item ) {
 
-				$url = wp_get_attachment_url( $item[ 'id' ] );
-				$path = get_attached_file( $item[ 'id' ] );
-				$source_url = ( $source_url = get_post_meta( $item[ 'id' ], '_source_url', true ) ) ? $source_url : $url;
+				$attachment_data = Rudr_Simple_Multisite_Crosspost::prepare_attachment_data( $item[ 'id' ] );
 
 				// here we do nothing if we don't have all data
-				if( ! $url || ! $path ) {
+				if( ! $attachment_data ) {
 					continue;
 				}
 				switch_to_blog( $new_blog_id );
-				$gallery[] = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( array( 'url' => $url, 'path' => $path, 'source_url' => $source_url ) );
+				$gallery[] = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( $attachment_data );
 				restore_current_blog();
 			}
 			$element[ 'settings' ][ 'gallery' ] = $gallery;
@@ -171,13 +191,11 @@ class Rudr_SMC_Elementor {
 		// our goal here is get an attachment_id
 		$attachment_id = $element[ 'settings' ][ 'image' ][ 'id' ];
 		// we need some attachment data
-		$url = wp_get_attachment_url( $attachment_id );
-		$path = get_attached_file( $attachment_id );
-		$source_url = ( $source_url = get_post_meta( $attachment_id, '_source_url', true ) ) ? $source_url : $url;
+		$attachment_data = Rudr_Simple_Multisite_Crosspost::prepare_attachment_data( $attachment_id );
 
-		if( $url && $path ) {
+		if( $attachment_data ) {
 			switch_to_blog( $new_blog_id );
-			$upload = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( array( 'url' => $url, 'path' => $path, 'source_url' => $source_url ) );
+			$upload = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( $attachment_data );
 			restore_current_blog();
 			if( $upload ) {
 				$element[ 'settings' ][ 'image' ][ 'id' ] = $upload[ 'id' ];
@@ -195,13 +213,11 @@ class Rudr_SMC_Elementor {
 		// our goal here is get an attachment_id
 		$attachment_id = $element_bg_image[ 'id' ];
 		// we need some attachment data
-		$url = wp_get_attachment_url( $attachment_id );
-		$path = get_attached_file( $attachment_id );
-		$source_url = ( $source_url = get_post_meta( $attachment_id, '_source_url', true ) ) ? $source_url : $url;
+		$attachment_data = Rudr_Simple_Multisite_Crosspost::prepare_attachment_data( $attachment_id );
 
-		if( $url && $path ) {
+		if( $attachment_data ) {
 			switch_to_blog( $new_blog_id );
-			$upload = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( array( 'url' => $url, 'path' => $path, 'source_url' => $source_url ) );
+			$upload = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( $attachment_data );
 			restore_current_blog();
 			if( $upload ) {
 				$element_bg_image[ 'id' ] = $upload[ 'id' ];
@@ -218,13 +234,11 @@ class Rudr_SMC_Elementor {
 		// our goal here is get an attachment_id
 		$attachment_id = $element_icon[ 'value' ][ 'id' ];
 		// we need some attachment data
-		$url = wp_get_attachment_url( $attachment_id );
-		$path = get_attached_file( $attachment_id );
-		$source_url = ( $source_url = get_post_meta( $attachment_id, '_source_url', true ) ) ? $source_url : $url;
+		$attachment_data = Rudr_Simple_Multisite_Crosspost::prepare_attachment_data( $attachment_id );
 
-		if( $url && $path ) {
+		if( $attachment_data ) {
 			switch_to_blog( $new_blog_id );
-			$upload = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( array( 'url' => $url, 'path' => $path, 'source_url' => $source_url ) );
+			$upload = Rudr_Simple_Multisite_Crosspost::maybe_copy_image( $attachment_data );
 			restore_current_blog();
 			if( $upload ) {
 				$element_icon[ 'value' ][ 'id' ] = $upload[ 'id' ];
