@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Simple Multisite Crossposting – Elementor
- * Plugin URL: https://rudrastyh.com/support/elementor
+ * Plugin URI: https://rudrastyh.com/support/elementor-multisite
  * Description: Adds better compatibility with Elementor and Elementor PRO.
  * Network: true
  * Author: Misha Rudrastyh
